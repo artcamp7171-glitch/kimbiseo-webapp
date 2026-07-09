@@ -643,13 +643,18 @@ function openSettingsModal() {
     saveSettings();
 
     const toks = Array.from(overlay.querySelectorAll('#m-default-reminders input:checked')).map(c => c.value);
-    let user = state.users.find(u => u.chat_id === settings.chatId);
-    if (!user) {
-      user = { chat_id: settings.chatId, name: "", registered_at: "", default_reminders: "" };
-      state.users.push(user);
-    }
-    user.default_reminders = toks.join(",");
     try {
+      // 토큰/브랜치를 방금 바꿨을 수 있으니, 저장 직전에 최신 파일 정보(sha)를 다시 받아온다.
+      const usersRes = await ghGet(DEFAULT_PATH_USERS);
+      state.users = rowsToObjects(parseCSV(usersRes.text));
+      state.usersSha = usersRes.sha;
+
+      let user = state.users.find(u => u.chat_id === settings.chatId);
+      if (!user) {
+        user = { chat_id: settings.chatId, name: "", registered_at: "", default_reminders: "" };
+        state.users.push(user);
+      }
+      user.default_reminders = toks.join(",");
       await persistUsers();
       toast("설정을 저장했습니다.");
       overlay.remove();
