@@ -130,6 +130,10 @@
     border-radius: 20px; font-size: 13px; color: var(--text); cursor: pointer;
   }
   .chk-row input { margin: 0; }
+  .time-toggle { display: flex; align-items: center; gap: 6px; margin: 12px 0 0; font-size: 13px; color: var(--text); cursor: pointer; }
+  .time-toggle input { width: auto; margin: 0; }
+  .time-selects { display: flex; gap: 8px; margin-top: 8px; }
+  .time-selects select { width: auto; flex: 1; }
   .modal-actions { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; flex-wrap: wrap; }
   .modal-actions .spacer { flex: 1; }
   .toast {
@@ -335,6 +339,20 @@ function myTasks() {
 }
 function dueDatePart(due) { return (due || "").split(" ")[0]; }
 function dueTimePart(due) { return (due || "").includes(" ") ? due.split(" ")[1] : ""; }
+
+// 24시간(HH:MM) <-> 오전/오후 12시간제(10분 단위) 변환
+function to12h(hhmm) {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  const ampm = h < 12 ? "AM" : "PM";
+  let hour = h % 12; if (hour === 0) hour = 12;
+  return { ampm, hour, minute: Math.floor(m / 10) * 10 };
+}
+function from12h(ampm, hour, minute) {
+  let h = Number(hour) % 12;
+  if (ampm === "PM") h += 12;
+  return `${String(h).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
 
 // ── 렌더링 ───────────────────────────────────────────
 const app = document.getElementById("app");
@@ -631,6 +649,7 @@ function openTaskModal(task, defaultDate) {
   const isEdit = !!task;
   const curDate = task ? dueDatePart(task.due_date) : (defaultDate || fmtDate(new Date()));
   const curTime = task ? dueTimePart(task.due_date) : "";
+  const curTime12 = to12h(curTime) || { ampm: "AM", hour: 9, minute: 0 };
   const curReminders = task ? (task.reminders || "").split(",").filter(Boolean) : [];
 
   const overlay = document.createElement("div");
@@ -642,8 +661,26 @@ function openTaskModal(task, defaultDate) {
       <input type="text" id="t-text" value="${escapeAttr(task ? task.task : "")}" placeholder="예: 헬리오시티점 드럼상담">
       <label>날짜</label>
       <input type="date" id="t-date" value="${curDate}">
-      <label>시간 (선택 — 비워두면 알림이 발송되지 않습니다)</label>
-      <input type="time" id="t-time" value="${curTime}">
+      <label class="time-toggle">
+        <input type="checkbox" id="t-time-enabled" ${curTime ? "checked" : ""}>
+        시간 지정 (비워두면 알림이 발송되지 않습니다)
+      </label>
+      <div class="time-selects" id="t-time-selects" style="display:${curTime ? "flex" : "none"}">
+        <select id="t-ampm">
+          <option value="AM" ${curTime12.ampm === "AM" ? "selected" : ""}>오전</option>
+          <option value="PM" ${curTime12.ampm === "PM" ? "selected" : ""}>오후</option>
+        </select>
+        <select id="t-hour">
+          ${Array.from({ length: 12 }, (_, i) => i + 1).map(h =>
+            `<option value="${h}" ${h === curTime12.hour ? "selected" : ""}>${h}시</option>`
+          ).join("")}
+        </select>
+        <select id="t-minute">
+          ${[0, 10, 20, 30, 40, 50].map(m =>
+            `<option value="${m}" ${m === curTime12.minute ? "selected" : ""}>${String(m).padStart(2, "0")}분</option>`
+          ).join("")}
+        </select>
+      </div>
       <label>알림 시점 (비워두면 기본 알림 설정이 적용됩니다)</label>
       <div class="chk-row" id="t-reminders">
         ${REMINDER_PRESETS.map(p => `
@@ -664,6 +701,9 @@ function openTaskModal(task, defaultDate) {
   document.body.appendChild(overlay);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
   document.getElementById("t-cancel").onclick = () => overlay.remove();
+  document.getElementById("t-time-enabled").onchange = (e) => {
+    document.getElementById("t-time-selects").style.display = e.target.checked ? "flex" : "none";
+  };
 
   if (isEdit) {
     document.getElementById("t-delete").onclick = async () => {
@@ -681,7 +721,14 @@ function openTaskModal(task, defaultDate) {
   document.getElementById("t-save").onclick = async () => {
     const text = document.getElementById("t-text").value.trim();
     const date = document.getElementById("t-date").value;
-    const time = document.getElementById("t-time").value;
+    const timeEnabled = document.getElementById("t-time-enabled").checked;
+    const time = timeEnabled
+      ? from12h(
+          document.getElementById("t-ampm").value,
+          document.getElementById("t-hour").value,
+          document.getElementById("t-minute").value
+        )
+      : "";
     const errEl = document.getElementById("t-error");
     if (!text) { errEl.textContent = "내용을 입력해주세요."; return; }
     if (!date) { errEl.textContent = "날짜를 선택해주세요."; return; }
