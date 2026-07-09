@@ -1,0 +1,652 @@
+<title>김비서 월간 스케쥴러</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --text: #1c1e21;
+    --muted: #6b7280;
+    --border: #e2e5ea;
+    --accent: #3b6ef6;
+    --accent-weak: #eaf0ff;
+    --danger: #e0453f;
+    --today: #fff4e0;
+    --shadow: 0 2px 10px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181c;
+      --panel: #1f2226;
+      --text: #eaecef;
+      --muted: #9aa0a8;
+      --border: #33373d;
+      --accent: #6d93ff;
+      --accent-weak: #202a44;
+      --danger: #ff6b66;
+      --today: #3a3320;
+      --shadow: 0 2px 10px rgba(0,0,0,.35);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Pretendard, sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 16px 14px 60px; }
+  header.top {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    margin-bottom: 14px; flex-wrap: wrap;
+  }
+  h1 { font-size: 18px; margin: 0; }
+  .muted { color: var(--muted); }
+  button {
+    font: inherit; cursor: pointer; border: 1px solid var(--border); background: var(--panel);
+    color: var(--text); border-radius: 8px; padding: 7px 12px;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { border-color: var(--danger); color: var(--danger); background: transparent; }
+  button.icon { padding: 7px 10px; }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; align-items: center; gap: 6px; }
+  .month-nav { display: flex; align-items: center; gap: 10px; }
+  .month-nav .label { font-weight: 600; min-width: 108px; text-align: center; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: var(--shadow); padding: 16px;
+  }
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 10px; }
+  .dow { text-align: center; font-size: 12px; color: var(--muted); padding-bottom: 4px; }
+  .cell {
+    min-height: 78px; border: 1px solid var(--border); border-radius: 8px; padding: 5px;
+    background: var(--panel); cursor: pointer; display: flex; flex-direction: column; gap: 3px;
+    overflow: hidden;
+  }
+  .cell.empty { border-color: transparent; cursor: default; }
+  .cell.today { background: var(--today); }
+  .cell.selected { outline: 2px solid var(--accent); }
+  .cell .daynum { font-size: 12px; color: var(--muted); }
+  .chip {
+    font-size: 11px; background: var(--accent-weak); color: var(--accent); border-radius: 5px;
+    padding: 2px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .chip.done { text-decoration: line-through; opacity: .55; }
+  .more { font-size: 11px; color: var(--muted); }
+  .daypanel { margin-top: 14px; }
+  .daypanel h2 { font-size: 15px; margin: 0 0 8px; }
+  .task-item {
+    display: flex; align-items: center; gap: 8px; padding: 8px 6px; border-bottom: 1px solid var(--border);
+  }
+  .task-item:last-child { border-bottom: none; }
+  .task-item .info { flex: 1; min-width: 0; }
+  .task-item .title { font-size: 14px; }
+  .task-item .title.done { text-decoration: line-through; color: var(--muted); }
+  .task-item .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .empty-msg { color: var(--muted); font-size: 13px; padding: 10px 4px; }
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: flex-end;
+    justify-content: center; z-index: 20;
+  }
+  @media (min-width: 640px) { .overlay { align-items: center; } }
+  .modal {
+    background: var(--panel); width: 100%; max-width: 480px; border-radius: 14px 14px 0 0;
+    padding: 18px; max-height: 88vh; overflow-y: auto;
+  }
+  @media (min-width: 640px) { .modal { border-radius: 14px; } }
+  .modal h2 { margin: 0 0 12px; font-size: 16px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  input[type=text], input[type=date], input[type=time], textarea, select {
+    width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text); font: inherit;
+  }
+  .chk-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  .chk-row label {
+    display: flex; align-items: center; gap: 5px; margin: 0; padding: 6px 10px; border: 1px solid var(--border);
+    border-radius: 20px; font-size: 13px; color: var(--text); cursor: pointer;
+  }
+  .chk-row input { margin: 0; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; flex-wrap: wrap; }
+  .modal-actions .spacer { flex: 1; }
+  .toast {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--text);
+    color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 13px; z-index: 40; max-width: 90vw;
+  }
+  .field-error { color: var(--danger); font-size: 12px; margin-top: 4px; }
+  .settings-grid { display: grid; gap: 10px; }
+  .hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .loading { text-align: center; padding: 40px 0; color: var(--muted); }
+</style>
+
+<div class="wrap" id="app"></div>
+
+<script>
+"use strict";
+
+const STORAGE_KEY = "kimbiseo_webapp_settings_v1";
+const DEFAULT_PATH_TASKS = "tasks.csv";
+const DEFAULT_PATH_USERS = "users.csv";
+const TASK_FIELDS = ["id","user_id","task","due_date","created_at","done","done_at","reminders","reminders_sent"];
+const USER_FIELDS = ["chat_id","name","registered_at","default_reminders"];
+const REMINDER_PRESETS = [
+  { tok: "1d", label: "1일 전" },
+  { tok: "2d", label: "2일 전" },
+  { tok: "3d", label: "3일 전" },
+  { tok: "1h", label: "1시간 전" },
+  { tok: "30m", label: "30분 전" },
+];
+
+// ── 상태 ─────────────────────────────────────────────
+let settings = loadSettings();
+let state = {
+  tasksSha: null, usersSha: null,
+  tasks: [], users: [],
+  year: null, month: null, selectedDate: null,
+  loading: false,
+};
+
+function loadSettings() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+  catch { return {}; }
+}
+function saveSettings() { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); }
+function settingsComplete() {
+  return settings.pat && settings.owner && settings.repo && settings.branch && settings.chatId;
+}
+
+// ── CSV 유틸 (Python csv 모듈 excel dialect와 호환) ──────
+function parseCSV(text) {
+  text = text.replace(/^﻿/, "");
+  const rows = [];
+  let row = [], field = "", inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ",") { row.push(field); field = ""; }
+    else if (c === "\r") { /* ignore, handled with \n */ }
+    else if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+    else field += c;
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  while (rows.length && rows[rows.length - 1].every(f => f === "")) rows.pop();
+  return rows;
+}
+function csvField(v) {
+  v = v == null ? "" : String(v);
+  return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+}
+function rowsToObjects(rows) {
+  if (!rows.length) return [];
+  const header = rows[0];
+  return rows.slice(1).map(r => {
+    const o = {};
+    header.forEach((h, i) => { o[h] = r[i] ?? ""; });
+    return o;
+  });
+}
+function objectsToCSV(fields, objs) {
+  const lines = [fields.join(",")];
+  for (const o of objs) lines.push(fields.map(f => csvField(o[f] ?? "")).join(","));
+  return lines.join("\r\n") + "\r\n";
+}
+
+function b64DecodeUTF8(b64) {
+  const binary = atob(b64.replace(/\n/g, ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder("utf-8").decode(bytes);
+}
+function b64EncodeUTF8(str) {
+  const bytes = new TextEncoder().encode(str);
+  let binary = "";
+  bytes.forEach(b => binary += String.fromCharCode(b));
+  return btoa(binary);
+}
+
+// ── GitHub Contents API ─────────────────────────────
+async function ghGet(path) {
+  const url = `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${path}?ref=${encodeURIComponent(settings.branch)}`;
+  const resp = await fetch(url, {
+    headers: { Authorization: `Bearer ${settings.pat}`, Accept: "application/vnd.github+json" },
+  });
+  if (resp.status === 404) return { text: "", sha: null };
+  if (!resp.ok) throw new Error(`GitHub API 오류 (${resp.status}): ${(await resp.json().catch(() => ({}))).message || resp.statusText}`);
+  const data = await resp.json();
+  return { text: b64DecodeUTF8(data.content), sha: data.sha };
+}
+async function ghPut(path, text, sha, message) {
+  const url = `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${path}`;
+  const body = { message, content: b64EncodeUTF8(text), branch: settings.branch };
+  if (sha) body.sha = sha;
+  const resp = await fetch(url, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${settings.pat}`,
+      Accept: "application/vnd.github+json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    const errBody = await resp.json().catch(() => ({}));
+    if (resp.status === 409) throw new Error("다른 곳에서 방금 데이터가 바뀌었어요. 새로고침 후 다시 시도해주세요.");
+    throw new Error(`저장 실패 (${resp.status}): ${errBody.message || resp.statusText}`);
+  }
+  const data = await resp.json();
+  return data.content.sha;
+}
+
+// ── 알림 토큰 헬퍼 ────────────────────────────────────
+function reminderLabel(tok) {
+  const m = /^(\d+)([dhm])$/.exec(tok);
+  if (!m) return tok;
+  const unit = { d: "일", h: "시간", m: "분" }[m[2]];
+  return `${m[1]}${unit} 전`;
+}
+function formatReminders(csv) {
+  const toks = (csv || "").split(",").map(t => t.trim()).filter(Boolean);
+  return toks.length ? toks.map(reminderLabel).join(", ") : "(없음)";
+}
+function validReminderToken(tok) { return /^\d+[dhm]$/.test(tok); }
+
+// ── 데이터 로드/저장 ──────────────────────────────────
+async function loadAll() {
+  state.loading = true; render();
+  try {
+    const [tasksRes, usersRes] = await Promise.all([ghGet(DEFAULT_PATH_TASKS), ghGet(DEFAULT_PATH_USERS)]);
+    state.tasks = rowsToObjects(parseCSV(tasksRes.text));
+    state.tasksSha = tasksRes.sha;
+    state.users = rowsToObjects(parseCSV(usersRes.text));
+    state.usersSha = usersRes.sha;
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    state.loading = false; render();
+  }
+}
+async function persistTasks() {
+  const text = objectsToCSV(TASK_FIELDS, state.tasks);
+  state.tasksSha = await ghPut(DEFAULT_PATH_TASKS, text, state.tasksSha, "webapp: 일정 변경");
+}
+async function persistUsers() {
+  const text = objectsToCSV(USER_FIELDS, state.users);
+  state.usersSha = await ghPut(DEFAULT_PATH_USERS, text, state.usersSha, "webapp: 기본 알림 설정 변경");
+}
+
+function nextTaskId() {
+  const ids = state.tasks.map(t => parseInt(t.id, 10)).filter(n => !isNaN(n));
+  return String((ids.length ? Math.max(...ids) : 0) + 1);
+}
+function myTasks() {
+  return state.tasks.filter(t => t.user_id === settings.chatId);
+}
+function dueDatePart(due) { return (due || "").split(" ")[0]; }
+function dueTimePart(due) { return (due || "").includes(" ") ? due.split(" ")[1] : ""; }
+
+// ── 렌더링 ───────────────────────────────────────────
+const app = document.getElementById("app");
+let toastTimer = null;
+function toast(msg, isError) {
+  clearTimeout(toastTimer);
+  let el = document.getElementById("toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "toast"; el.className = "toast";
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.background = isError ? "var(--danger)" : "var(--text)";
+  el.style.color = isError ? "#fff" : "var(--bg)";
+  el.style.display = "block";
+  toastTimer = setTimeout(() => { el.style.display = "none"; }, 3200);
+}
+
+function render() {
+  if (!settingsComplete()) { renderSettingsScreen(); return; }
+  const today = new Date();
+  if (state.year == null) { state.year = today.getFullYear(); state.month = today.getMonth() + 1; }
+
+  const html = [];
+  html.push(`<header class="top">
+    <h1>📅 김비서 월간 스케쥴러</h1>
+    <div class="row">
+      <button class="icon" id="btn-settings" title="설정">⚙️</button>
+      <button class="icon" id="btn-refresh" title="새로고침">⟳</button>
+    </div>
+  </header>`);
+
+  html.push(`<div class="panel">
+    <div class="row" style="justify-content:space-between">
+      <div class="month-nav">
+        <button id="btn-prev">◀</button>
+        <div class="label">${state.year}년 ${state.month}월</div>
+        <button id="btn-next">▶</button>
+      </div>
+      <button id="btn-today">오늘</button>
+    </div>`);
+
+  if (state.loading) {
+    html.push(`<div class="loading">불러오는 중…</div>`);
+  } else {
+    html.push(renderCalendarGrid());
+  }
+  html.push(`</div>`);
+
+  if (!state.loading && state.selectedDate) html.push(renderDayPanel());
+
+  app.innerHTML = html.join("");
+  bindTopEvents();
+}
+
+function renderCalendarGrid() {
+  const y = state.year, m = state.month;
+  const first = new Date(y, m - 1, 1);
+  const startDow = first.getDay(); // 0=일
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const todayStr = fmtDate(new Date());
+
+  const byDay = {};
+  for (const t of myTasks()) {
+    if (t.done === "True") continue;
+    const dp = dueDatePart(t.due_date);
+    if (!dp) continue;
+    const [ty, tm] = dp.split("-").map(Number);
+    if (ty === y && tm === m) {
+      const d = Number(dp.split("-")[2]);
+      (byDay[d] = byDay[d] || []).push(t);
+    }
+  }
+
+  const cells = [];
+  for (let i = 0; i < startDow; i++) cells.push(`<div class="cell empty"></div>`);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = fmtDate(new Date(y, m - 1, d));
+    const items = (byDay[d] || []).sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
+    const chips = items.slice(0, 3).map(t =>
+      `<div class="chip">${escapeHTML(dueTimePart(t.due_date) ? dueTimePart(t.due_date) + " " : "") + escapeHTML(t.task)}</div>`
+    ).join("");
+    const more = items.length > 3 ? `<div class="more">+${items.length - 3}</div>` : "";
+    const classes = ["cell"];
+    if (dateStr === todayStr) classes.push("today");
+    if (dateStr === state.selectedDate) classes.push("selected");
+    cells.push(`<div class="${classes.join(" ")}" data-date="${dateStr}"><div class="daynum">${d}</div>${chips}${more}</div>`);
+  }
+
+  const dow = ["일", "월", "화", "수", "목", "금", "토"].map(d => `<div class="dow">${d}</div>`).join("");
+  return `<div class="grid">${dow}${cells.join("")}</div>`;
+}
+
+function renderDayPanel() {
+  const items = myTasks()
+    .filter(t => dueDatePart(t.due_date) === state.selectedDate)
+    .sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
+  const [y, m, d] = state.selectedDate.split("-").map(Number);
+
+  const list = items.length
+    ? items.map(t => `
+      <div class="task-item" data-id="${t.id}">
+        <div class="info">
+          <div class="title ${t.done === "True" ? "done" : ""}">${escapeHTML(t.task)}</div>
+          <div class="sub">${dueTimePart(t.due_date) ? "🕐 " + dueTimePart(t.due_date) + " · " : ""}알림: ${formatReminders(t.reminders)}</div>
+        </div>
+        <button class="icon btn-edit" data-id="${t.id}">✏️</button>
+      </div>`).join("")
+    : `<div class="empty-msg">등록된 일정이 없습니다.</div>`;
+
+  return `<div class="panel daypanel">
+    <div class="row" style="justify-content:space-between">
+      <h2>${m}월 ${d}일 일정</h2>
+      <button class="primary" id="btn-add">+ 일정 추가</button>
+    </div>
+    ${list}
+  </div>`;
+}
+
+function renderSettingsScreen() {
+  app.innerHTML = `
+    <header class="top"><h1>📅 김비서 월간 스케쥴러 — 설정</h1></header>
+    <div class="panel">
+      <p class="hint">
+        이 앱은 서버 없이 브라우저에서 직접 GitHub 저장소의 tasks.csv / users.csv 를 읽고 씁니다.
+        아래 정보는 이 브라우저에만 저장되며 GitHub API 외에는 전송되지 않습니다.<br><br>
+        1) GitHub → Settings → Developer settings → <b>Fine-grained personal access token</b> 발급<br>
+        (이 저장소에 대해 Contents: Read and write 권한만 부여하세요)<br>
+        2) 텔레그램 봇과 대화를 한 번 시작하면 users.csv 에 내 chat_id 가 등록됩니다. 그 번호를 아래에 입력하세요.
+      </p>
+      <div class="settings-grid">
+        <div><label>GitHub Personal Access Token</label>
+          <input type="text" id="s-pat" placeholder="github_pat_..." value="${escapeAttr(settings.pat || "")}"></div>
+        <div><label>저장소 소유자 (owner)</label>
+          <input type="text" id="s-owner" placeholder="artcamp7171-glitch" value="${escapeAttr(settings.owner ?? "artcamp7171-glitch")}"></div>
+        <div><label>저장소 이름 (repo)</label>
+          <input type="text" id="s-repo" placeholder="blog-monitor" value="${escapeAttr(settings.repo ?? "blog-monitor")}"></div>
+        <div><label>브랜치</label>
+          <input type="text" id="s-branch" placeholder="main" value="${escapeAttr(settings.branch ?? "main")}"></div>
+        <div><label>내 텔레그램 chat_id</label>
+          <input type="text" id="s-chatid" placeholder="예: 5299942857" value="${escapeAttr(settings.chatId || "")}"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="primary" id="btn-save-settings">저장하고 시작</button>
+      </div>
+    </div>`;
+  document.getElementById("btn-save-settings").onclick = () => {
+    settings.pat = document.getElementById("s-pat").value.trim();
+    settings.owner = document.getElementById("s-owner").value.trim();
+    settings.repo = document.getElementById("s-repo").value.trim();
+    settings.branch = document.getElementById("s-branch").value.trim() || "main";
+    settings.chatId = document.getElementById("s-chatid").value.trim();
+    if (!settings.pat || !settings.owner || !settings.repo || !settings.chatId) {
+      toast("모든 항목을 입력해주세요.", true); return;
+    }
+    saveSettings();
+    loadAll();
+  };
+}
+
+function bindTopEvents() {
+  const $ = id => document.getElementById(id);
+  if ($("btn-settings")) $("btn-settings").onclick = openSettingsModal;
+  if ($("btn-refresh")) $("btn-refresh").onclick = loadAll;
+  if ($("btn-prev")) $("btn-prev").onclick = () => { shiftMonth(-1); };
+  if ($("btn-next")) $("btn-next").onclick = () => { shiftMonth(1); };
+  if ($("btn-today")) $("btn-today").onclick = () => {
+    const t = new Date();
+    state.year = t.getFullYear(); state.month = t.getMonth() + 1;
+    state.selectedDate = fmtDate(t);
+    render();
+  };
+  if ($("btn-add")) $("btn-add").onclick = () => openTaskModal(null, state.selectedDate);
+  document.querySelectorAll(".cell[data-date]").forEach(el => {
+    el.onclick = () => { state.selectedDate = el.dataset.date; render(); };
+  });
+  document.querySelectorAll(".btn-edit").forEach(el => {
+    el.onclick = (ev) => {
+      ev.stopPropagation();
+      const t = state.tasks.find(x => x.id === el.dataset.id);
+      if (t) openTaskModal(t, dueDatePart(t.due_date));
+    };
+  });
+}
+
+function shiftMonth(delta) {
+  let m = state.month + delta, y = state.year;
+  if (m < 1) { m = 12; y -= 1; }
+  if (m > 12) { m = 1; y += 1; }
+  state.year = y; state.month = m; state.selectedDate = null;
+  render();
+}
+function fmtDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function nowISOKST() {
+  return new Date().toISOString();
+}
+function escapeHTML(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function escapeAttr(s) { return escapeHTML(s); }
+
+// ── 설정 모달 (알림 기본값 포함) ───────────────────────
+function openSettingsModal() {
+  const me = state.users.find(u => u.chat_id === settings.chatId);
+  const curDefault = (me && me.default_reminders) || "";
+  const overlay = document.createElement("div");
+  overlay.className = "overlay";
+  overlay.innerHTML = `
+    <div class="modal">
+      <h2>⚙️ 설정</h2>
+      <label>GitHub Personal Access Token</label>
+      <input type="text" id="m-pat" value="${escapeAttr(settings.pat)}">
+      <label>저장소 (owner/repo)</label>
+      <div class="row">
+        <input type="text" id="m-owner" value="${escapeAttr(settings.owner)}">
+        <input type="text" id="m-repo" value="${escapeAttr(settings.repo)}">
+      </div>
+      <label>브랜치</label>
+      <input type="text" id="m-branch" value="${escapeAttr(settings.branch)}">
+      <label>내 텔레그램 chat_id</label>
+      <input type="text" id="m-chatid" value="${escapeAttr(settings.chatId)}">
+
+      <label>기본 알림 시점 (시간이 포함된 모든 일정에 적용)</label>
+      <div class="chk-row" id="m-default-reminders">
+        ${REMINDER_PRESETS.map(p => `
+          <label><input type="checkbox" value="${p.tok}" ${curDefault.split(",").includes(p.tok) ? "checked" : ""}> ${p.label}</label>
+        `).join("")}
+      </div>
+      <p class="hint">일정을 만들 때 알림을 따로 지정하지 않으면 이 기본값이 쓰입니다. (지정하지 않으면 1일 전 · 1시간 전이 기본으로 적용됩니다)</p>
+
+      <div class="modal-actions">
+        <button class="danger" id="m-close">닫기</button>
+        <div class="spacer"></div>
+        <button class="primary" id="m-save">저장</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  document.getElementById("m-close").onclick = () => overlay.remove();
+  document.getElementById("m-save").onclick = async () => {
+    settings.pat = document.getElementById("m-pat").value.trim();
+    settings.owner = document.getElementById("m-owner").value.trim();
+    settings.repo = document.getElementById("m-repo").value.trim();
+    settings.branch = document.getElementById("m-branch").value.trim() || "main";
+    settings.chatId = document.getElementById("m-chatid").value.trim();
+    saveSettings();
+
+    const toks = Array.from(overlay.querySelectorAll('#m-default-reminders input:checked')).map(c => c.value);
+    let user = state.users.find(u => u.chat_id === settings.chatId);
+    if (!user) {
+      user = { chat_id: settings.chatId, name: "", registered_at: "", default_reminders: "" };
+      state.users.push(user);
+    }
+    user.default_reminders = toks.join(",");
+    try {
+      await persistUsers();
+      toast("설정을 저장했습니다.");
+      overlay.remove();
+      loadAll();
+    } catch (e) { toast(e.message, true); }
+  };
+}
+
+// ── 일정 추가/수정 모달 ──────────────────────────────
+function openTaskModal(task, defaultDate) {
+  const isEdit = !!task;
+  const curDate = task ? dueDatePart(task.due_date) : (defaultDate || fmtDate(new Date()));
+  const curTime = task ? dueTimePart(task.due_date) : "";
+  const curReminders = task ? (task.reminders || "").split(",").filter(Boolean) : [];
+
+  const overlay = document.createElement("div");
+  overlay.className = "overlay";
+  overlay.innerHTML = `
+    <div class="modal">
+      <h2>${isEdit ? "일정 수정" : "일정 추가"}</h2>
+      <label>내용</label>
+      <input type="text" id="t-text" value="${escapeAttr(task ? task.task : "")}" placeholder="예: 헬리오시티점 드럼상담">
+      <label>날짜</label>
+      <input type="date" id="t-date" value="${curDate}">
+      <label>시간 (선택 — 비워두면 알림이 발송되지 않습니다)</label>
+      <input type="time" id="t-time" value="${curTime}">
+      <label>알림 시점 (비워두면 기본 알림 설정이 적용됩니다)</label>
+      <div class="chk-row" id="t-reminders">
+        ${REMINDER_PRESETS.map(p => `
+          <label><input type="checkbox" value="${p.tok}" ${curReminders.includes(p.tok) ? "checked" : ""}> ${p.label}</label>
+        `).join("")}
+      </div>
+      ${isEdit ? `<label class="row" style="margin-top:14px;gap:8px;">
+        <input type="checkbox" id="t-done" ${task.done === "True" ? "checked" : ""} style="width:auto"> 완료됨
+      </label>` : ""}
+      <div id="t-error" class="field-error"></div>
+      <div class="modal-actions">
+        ${isEdit ? `<button class="danger" id="t-delete">삭제</button>` : ""}
+        <div class="spacer"></div>
+        <button id="t-cancel">취소</button>
+        <button class="primary" id="t-save">저장</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  document.getElementById("t-cancel").onclick = () => overlay.remove();
+
+  if (isEdit) {
+    document.getElementById("t-delete").onclick = async () => {
+      if (!confirm("이 일정을 삭제할까요?")) return;
+      state.tasks = state.tasks.filter(t => t.id !== task.id);
+      try {
+        await persistTasks();
+        toast("삭제했습니다.");
+        overlay.remove();
+        loadAll();
+      } catch (e) { toast(e.message, true); }
+    };
+  }
+
+  document.getElementById("t-save").onclick = async () => {
+    const text = document.getElementById("t-text").value.trim();
+    const date = document.getElementById("t-date").value;
+    const time = document.getElementById("t-time").value;
+    const errEl = document.getElementById("t-error");
+    if (!text) { errEl.textContent = "내용을 입력해주세요."; return; }
+    if (!date) { errEl.textContent = "날짜를 선택해주세요."; return; }
+    errEl.textContent = "";
+
+    const reminders = Array.from(overlay.querySelectorAll("#t-reminders input:checked")).map(c => c.value);
+    const dueDate = date + (time ? " " + time : "");
+
+    if (isEdit) {
+      task.task = text;
+      task.due_date = dueDate;
+      task.reminders = reminders.join(",");
+      task.reminders_sent = "";
+      task.done = document.getElementById("t-done").checked ? "True" : "False";
+      task.done_at = task.done === "True" ? (task.done_at || nowISOKST()) : "";
+    } else {
+      state.tasks.push({
+        id: nextTaskId(),
+        user_id: settings.chatId,
+        task: text,
+        due_date: dueDate,
+        created_at: nowISOKST(),
+        done: "False",
+        done_at: "",
+        reminders: reminders.join(","),
+        reminders_sent: "",
+      });
+    }
+    try {
+      await persistTasks();
+      toast(isEdit ? "수정했습니다." : "추가했습니다.");
+      overlay.remove();
+      state.selectedDate = date;
+      loadAll();
+    } catch (e) { errEl.textContent = e.message; }
+  };
+}
+
+// ── 시작 ─────────────────────────────────────────────
+if (settingsComplete()) loadAll(); else render();
+</script>
