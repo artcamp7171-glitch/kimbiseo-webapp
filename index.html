@@ -13,6 +13,10 @@
     --accent-weak: #eaf0ff;
     --danger: #e0453f;
     --today: #fff4e0;
+    --sunday: #e0453f;
+    --saturday: #2f6fed;
+    --holiday-bg: rgba(224,69,63,.07);
+    --weekend-bg: rgba(59,110,246,.05);
     --shadow: 0 2px 10px rgba(0,0,0,.06);
   }
   @media (prefers-color-scheme: dark) {
@@ -26,6 +30,10 @@
       --accent-weak: #202a44;
       --danger: #ff6b66;
       --today: #3a3320;
+      --sunday: #ff6b66;
+      --saturday: #6d93ff;
+      --holiday-bg: rgba(255,107,102,.09);
+      --weekend-bg: rgba(109,147,255,.07);
       --shadow: 0 2px 10px rgba(0,0,0,.35);
     }
   }
@@ -56,23 +64,39 @@
     background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
     box-shadow: var(--shadow); padding: 16px;
   }
-  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 10px; }
-  .dow { text-align: center; font-size: 12px; color: var(--muted); padding-bottom: 4px; }
-  .cell {
-    min-height: 78px; border: 1px solid var(--border); border-radius: 8px; padding: 5px;
-    background: var(--panel); cursor: pointer; display: flex; flex-direction: column; gap: 3px;
-    overflow: hidden;
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; margin-top: 12px; }
+  .dow {
+    text-align: center; font-size: 12px; font-weight: 600; color: var(--muted);
+    padding-bottom: 8px; letter-spacing: .02em;
   }
+  .dow.sun { color: var(--sunday); }
+  .dow.sat { color: var(--saturday); }
+  .cell {
+    min-height: 88px; border: 1px solid var(--border); border-radius: 10px; padding: 6px 6px 5px;
+    background: var(--panel); cursor: pointer; display: flex; flex-direction: column; gap: 3px;
+    overflow: hidden; transition: border-color .12s ease, box-shadow .12s ease;
+  }
+  .cell:not(.empty):hover { border-color: var(--accent); box-shadow: 0 1px 6px rgba(0,0,0,.08); }
   .cell.empty { border-color: transparent; cursor: default; }
-  .cell.today { background: var(--today); }
-  .cell.selected { outline: 2px solid var(--accent); }
-  .cell .daynum { font-size: 12px; color: var(--muted); }
+  .cell.weekend { background: var(--weekend-bg); }
+  .cell.holiday { background: var(--holiday-bg); }
+  .cell.today { background: var(--today); border-color: #e8b95a; }
+  .cell.selected { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .cell .daynum { font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.2; }
+  .cell .daynum.sun, .cell .daynum.holiday-num { color: var(--sunday); }
+  .cell .daynum.sat { color: var(--saturday); }
+  .cell .holiday-name {
+    font-size: 10px; color: var(--sunday); line-height: 1.25; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; font-weight: 600;
+  }
   .chip {
-    font-size: 11px; background: var(--accent-weak); color: var(--accent); border-radius: 5px;
-    padding: 2px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: 11.5px; background: var(--accent-weak); color: var(--accent); border-radius: 5px;
+    padding: 2.5px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4;
   }
   .chip.done { text-decoration: line-through; opacity: .55; }
-  .more { font-size: 11px; color: var(--muted); }
+  .more { font-size: 11px; color: var(--muted); padding-left: 1px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: var(--muted); }
+  .legend .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
   .daypanel { margin-top: 14px; }
   .daypanel h2 { font-size: 15px; margin: 0 0 8px; }
   .task-item {
@@ -135,6 +159,30 @@ const REMINDER_PRESETS = [
   { tok: "1h", label: "1시간 전" },
   { tok: "30m", label: "30분 전" },
 ];
+
+// 대한민국 관공서 공휴일(대체공휴일 포함). 음력 기반 명절 등은 매년 날짜가 바뀌므로
+// 확인된 연도만 정확히 채워둔다. 목록에 없는 연도는 일요일/토요일 색상만 적용된다.
+const KR_HOLIDAYS = {
+  "2026-01-01": "신정",
+  "2026-02-16": "설날 연휴",
+  "2026-02-17": "설날",
+  "2026-02-18": "설날 연휴",
+  "2026-03-01": "삼일절",
+  "2026-03-02": "대체공휴일",
+  "2026-05-05": "어린이날",
+  "2026-05-24": "부처님오신날",
+  "2026-05-25": "대체공휴일",
+  "2026-06-06": "현충일",
+  "2026-08-15": "광복절",
+  "2026-08-17": "대체공휴일",
+  "2026-09-24": "추석 연휴",
+  "2026-09-25": "추석",
+  "2026-09-26": "추석 연휴",
+  "2026-10-03": "개천절",
+  "2026-10-05": "대체공휴일",
+  "2026-10-09": "한글날",
+  "2026-12-25": "성탄절",
+};
 
 // ── 상태 ─────────────────────────────────────────────
 let settings = loadSettings();
@@ -366,19 +414,39 @@ function renderCalendarGrid() {
   for (let i = 0; i < startDow; i++) cells.push(`<div class="cell empty"></div>`);
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = fmtDate(new Date(y, m - 1, d));
+    const dow = new Date(y, m - 1, d).getDay(); // 0=일 ... 6=토
+    const holidayName = KR_HOLIDAYS[dateStr];
     const items = (byDay[d] || []).sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
     const chips = items.slice(0, 3).map(t =>
       `<div class="chip">${escapeHTML(dueTimePart(t.due_date) ? dueTimePart(t.due_date) + " " : "") + escapeHTML(t.task)}</div>`
     ).join("");
     const more = items.length > 3 ? `<div class="more">+${items.length - 3}</div>` : "";
+
     const classes = ["cell"];
+    if (dow === 0 || dow === 6 || holidayName) classes.push("weekend");
+    if (holidayName) classes.push("holiday");
     if (dateStr === todayStr) classes.push("today");
     if (dateStr === state.selectedDate) classes.push("selected");
-    cells.push(`<div class="${classes.join(" ")}" data-date="${dateStr}"><div class="daynum">${d}</div>${chips}${more}</div>`);
+
+    const numClasses = ["daynum"];
+    if (holidayName || dow === 0) numClasses.push("sun");
+    else if (dow === 6) numClasses.push("sat");
+
+    const holidayLabel = holidayName ? `<div class="holiday-name">${escapeHTML(holidayName)}</div>` : "";
+    cells.push(`<div class="${classes.join(" ")}" data-date="${dateStr}"><div class="${numClasses.join(" ")}">${d}</div>${holidayLabel}${chips}${more}</div>`);
   }
 
-  const dow = ["일", "월", "화", "수", "목", "금", "토"].map(d => `<div class="dow">${d}</div>`).join("");
-  return `<div class="grid">${dow}${cells.join("")}</div>`;
+  const dowNames = ["일", "월", "화", "수", "목", "금", "토"];
+  const dowHeader = dowNames.map((label, i) => {
+    const cls = i === 0 ? "dow sun" : i === 6 ? "dow sat" : "dow";
+    return `<div class="${cls}">${label}</div>`;
+  }).join("");
+  return `<div class="grid">${dowHeader}${cells.join("")}</div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--sunday)"></span>일요일 · 공휴일</span>
+      <span><span class="dot" style="background:var(--saturday)"></span>토요일</span>
+      <span><span class="dot" style="background:#e8b95a"></span>오늘</span>
+    </div>`;
 }
 
 function renderDayPanel() {
@@ -398,9 +466,14 @@ function renderDayPanel() {
       </div>`).join("")
     : `<div class="empty-msg">등록된 일정이 없습니다.</div>`;
 
+  const holidayName = KR_HOLIDAYS[state.selectedDate];
+  const holidayBadge = holidayName
+    ? ` <span style="color:var(--sunday);font-size:13px;font-weight:600">· ${escapeHTML(holidayName)}</span>`
+    : "";
+
   return `<div class="panel daypanel">
     <div class="row" style="justify-content:space-between">
-      <h2>${m}월 ${d}일 일정</h2>
+      <h2>${m}월 ${d}일 일정${holidayBadge}</h2>
       <button class="primary" id="btn-add">+ 일정 추가</button>
     </div>
     ${list}
@@ -650,4 +723,3 @@ function openTaskModal(task, defaultDate) {
 // ── 시작 ─────────────────────────────────────────────
 if (settingsComplete()) loadAll(); else render();
 </script>
-<!-- redeploy trigger -->
