@@ -261,7 +261,20 @@ function b64EncodeUTF8(str) {
 }
 
 // ── GitHub Contents API ─────────────────────────────
+function assertValidToken() {
+  const pat = (settings.pat || "").trim();
+  if (!pat) {
+    throw new Error("GitHub 토큰이 비어있습니다. 설정(⚙️)에서 발급받은 토큰을 입력해주세요.");
+  }
+  if (!/^[\x20-\x7E]+$/.test(pat)) {
+    throw new Error("GitHub 토큰에 한글이나 공백 등 잘못된 문자가 섞여 있습니다. 설정(⚙️)에서 토큰 칸을 지우고 github_pat_로 시작하는 실제 토큰만 다시 붙여넣어주세요.");
+  }
+  if (!/^(github_pat_|ghp_)/.test(pat)) {
+    throw new Error("GitHub 토큰 형식이 올바르지 않습니다 (github_pat_ 로 시작해야 합니다). 설정(⚙️)에서 토큰을 다시 확인해주세요.");
+  }
+}
 async function ghGet(path) {
+  assertValidToken();
   const url = `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${path}?ref=${encodeURIComponent(settings.branch)}`;
   const resp = await fetch(url, {
     headers: { Authorization: `Bearer ${settings.pat}`, Accept: "application/vnd.github+json" },
@@ -272,6 +285,7 @@ async function ghGet(path) {
   return { text: b64DecodeUTF8(data.content), sha: data.sha };
 }
 async function ghPut(path, text, sha, message) {
+  assertValidToken();
   const url = `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${path}`;
   const body = { message, content: b64EncodeUTF8(text), branch: settings.branch };
   if (sha) body.sha = sha;
