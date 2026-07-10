@@ -321,8 +321,9 @@ function formatReminders(csv) {
 function validReminderToken(tok) { return /^\d+[dhm]$/.test(tok); }
 
 // ── 데이터 로드/저장 ──────────────────────────────────
-async function loadAll() {
-  state.loading = true; render();
+async function loadAll(opts) {
+  const silent = !!(opts && opts.silent);
+  if (!silent) { state.loading = true; render(); }
   try {
     const [tasksRes, usersRes] = await Promise.all([ghGet(DEFAULT_PATH_TASKS), ghGet(DEFAULT_PATH_USERS)]);
     state.tasks = rowsToObjects(parseCSV(tasksRes.text));
@@ -330,7 +331,7 @@ async function loadAll() {
     state.users = rowsToObjects(parseCSV(usersRes.text));
     state.usersSha = usersRes.sha;
   } catch (e) {
-    toast(e.message, true);
+    if (!silent) toast(e.message, true);
   } finally {
     state.loading = false; render();
   }
@@ -788,4 +789,14 @@ function openTaskModal(task, defaultDate) {
 
 // ── 시작 ─────────────────────────────────────────────
 if (settingsComplete()) loadAll(); else render();
+
+// 텔레그램 봇이 새로 등록한 일정이 화면에 자동으로 반영되도록 주기적으로 조용히 새로고침한다.
+// 로딩 스피너 없이(silent) 데이터만 갱신하고, 탭이 백그라운드일 땐 쉬었다가 돌아오면 즉시 갱신한다.
+const AUTO_REFRESH_MS = 20000;
+setInterval(() => {
+  if (!document.hidden && settingsComplete() && !state.loading) loadAll({ silent: true });
+}, AUTO_REFRESH_MS);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && settingsComplete() && !state.loading) loadAll({ silent: true });
+});
 </script>
