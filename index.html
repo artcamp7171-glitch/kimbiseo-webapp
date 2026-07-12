@@ -910,11 +910,17 @@ function openTaskModal(task, defaultDate, forceTime) {
     let recognition = null;
     let finalTranscript = "";
     let active = false;
+    let started = false;
+    let stopRequested = false;
 
+    // iOS Safari 등에서 onstart(마이크 연결 완료) 이전에 stop()을 호출하면
+    // "aborted" 에러가 발생한다. 짧게 눌렀다 뗀 경우 실제로 시작될 때까지 기다렸다가 멈춘다.
     function start(ev) {
       ev.preventDefault();
       if (active) return;
       active = true;
+      started = false;
+      stopRequested = false;
       finalTranscript = "";
       liveEl.textContent = "듣는 중…";
       btn.classList.add("recording");
@@ -922,6 +928,10 @@ function openTaskModal(task, defaultDate, forceTime) {
       recognition.lang = "ko-KR";
       recognition.interimResults = true;
       recognition.continuous = true;
+      recognition.onstart = () => {
+        started = true;
+        if (stopRequested) { try { recognition.stop(); } catch { /* noop */ } }
+      };
       recognition.onresult = (e) => {
         let interim = "";
         for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -932,6 +942,8 @@ function openTaskModal(task, defaultDate, forceTime) {
         liveEl.textContent = (finalTranscript + interim) || "듣는 중…";
       };
       recognition.onerror = (e) => {
+        // stop()으로 인한 정상 종료 과정에서도 aborted/no-speech가 뜰 수 있어 무시한다.
+        if (e.error === "aborted" || e.error === "no-speech") return;
         toast(e.error === "not-allowed" ? "마이크 권한이 필요합니다." : "음성 인식 오류: " + e.error, true);
       };
       recognition.onend = () => {
@@ -947,7 +959,9 @@ function openTaskModal(task, defaultDate, forceTime) {
     }
     function stop(ev) {
       if (ev) ev.preventDefault();
-      if (recognition) { try { recognition.stop(); } catch { /* noop */ } }
+      if (!recognition) return;
+      if (!started) { stopRequested = true; return; }
+      try { recognition.stop(); } catch { /* noop */ }
     }
     btn.addEventListener("pointerdown", start);
     btn.addEventListener("pointerup", stop);
