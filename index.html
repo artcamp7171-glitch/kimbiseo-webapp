@@ -132,8 +132,54 @@
   .chk-row input { margin: 0; }
   .time-toggle { display: flex; align-items: center; gap: 6px; margin: 12px 0 0; font-size: 13px; color: var(--text); cursor: pointer; }
   .time-toggle input { width: auto; margin: 0; }
-  .time-selects { display: flex; gap: 8px; margin-top: 8px; }
-  .time-selects select { width: auto; flex: 1; }
+
+  .clock-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 10px; }
+  .clock-ampm { display: flex; gap: 8px; }
+  .clock-ampm button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .clock-face { width: 220px; max-width: 100%; }
+  .clock-face .clock-outer { fill: none; stroke: var(--border); stroke-width: 1.5; }
+  .clock-mark circle { fill: var(--panel); stroke: var(--border); cursor: pointer; }
+  .clock-mark text { font-size: 13px; fill: var(--text); font-weight: 600; user-select: none; pointer-events: none; }
+  .clock-mark.selected circle { fill: var(--accent); stroke: var(--accent); }
+  .clock-mark.selected text { fill: #fff; }
+  .clock-hand { stroke: var(--accent); stroke-width: 2; }
+  .clock-center { fill: var(--accent); }
+  .clock-current { font-size: 15px; font-weight: 700; }
+  .clock-redo { font-size: 12px; color: var(--muted); background: none; border: none; text-decoration: underline; cursor: pointer; padding: 2px; }
+
+  .wheel-outer { position: relative; width: 140px; }
+  .wheel-viewport {
+    height: 120px; overflow-y: scroll; scroll-snap-type: y mandatory;
+    -webkit-overflow-scrolling: touch; border-radius: 10px; background: var(--bg);
+    scrollbar-width: none;
+  }
+  .wheel-viewport::-webkit-scrollbar { display: none; }
+  .wheel-pad { height: 40px; }
+  .wheel-item {
+    height: 40px; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; color: var(--muted); scroll-snap-align: center;
+  }
+  .wheel-item.center { color: var(--text); font-weight: 700; font-size: 19px; }
+  .wheel-highlight {
+    position: absolute; left: 0; right: 0; top: 40px; height: 40px;
+    border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); pointer-events: none;
+  }
+  .wheel-actions { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
+
+  .record-section { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border); }
+  .record-btn {
+    width: 88px; height: 88px; border-radius: 50%; background: var(--danger); border: none;
+    box-shadow: 0 2px 10px rgba(224,69,63,.4); touch-action: none; user-select: none;
+    display: flex; align-items: center; justify-content: center; font-size: 30px; color: #fff;
+  }
+  .record-btn.recording { animation: rec-pulse 1.1s infinite; }
+  @keyframes rec-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(224,69,63,.55); }
+    70% { box-shadow: 0 0 0 20px rgba(224,69,63,0); }
+    100% { box-shadow: 0 0 0 0 rgba(224,69,63,0); }
+  }
+  .record-hint { font-size: 12px; color: var(--muted); text-align: center; }
+  .record-live { font-size: 13px; color: var(--text); min-height: 18px; text-align: center; max-width: 300px; }
   .modal-actions { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; flex-wrap: wrap; }
   .modal-actions .spacer { flex: 1; }
   .toast {
@@ -361,7 +407,7 @@ function to12h(hhmm) {
   const [h, m] = hhmm.split(":").map(Number);
   const ampm = h < 12 ? "AM" : "PM";
   let hour = h % 12; if (hour === 0) hour = 12;
-  return { ampm, hour, minute: Math.floor(m / 10) * 10 };
+  return { ampm, hour, minute: Math.floor(m / 5) * 5 };
 }
 function from12h(ampm, hour, minute) {
   let h = Number(hour) % 12;
@@ -568,7 +614,11 @@ function bindTopEvents() {
   };
   if ($("btn-add")) $("btn-add").onclick = () => openTaskModal(null, state.selectedDate);
   document.querySelectorAll(".cell[data-date]").forEach(el => {
-    el.onclick = () => { state.selectedDate = el.dataset.date; render(); };
+    el.onclick = () => {
+      state.selectedDate = el.dataset.date;
+      render();
+      openTaskModal(null, state.selectedDate, true);
+    };
   });
   document.querySelectorAll(".btn-edit").forEach(el => {
     el.onclick = (ev) => {
@@ -665,12 +715,22 @@ function openSettingsModal() {
 }
 
 // ── 일정 추가/수정 모달 ──────────────────────────────
-function openTaskModal(task, defaultDate) {
+function openTaskModal(task, defaultDate, forceTime) {
   const isEdit = !!task;
   const curDate = task ? dueDatePart(task.due_date) : (defaultDate || fmtDate(new Date()));
   const curTime = task ? dueTimePart(task.due_date) : "";
-  const curTime12 = to12h(curTime) || { ampm: "AM", hour: 9, minute: 0 };
+  const curTime12 = to12h(curTime);
   const curReminders = task ? (task.reminders || "").split(",").filter(Boolean) : [];
+  const showTimeArea = !!(curTime || forceTime);
+
+  // 원형 시계로 시(時)→분(分) 순서로 선택하고, 선택이 끝나면 녹음 버튼을 보여준다.
+  const clockState = {
+    mode: "hour",
+    ampm: (curTime12 && curTime12.ampm) || "AM",
+    hour: curTime12 ? curTime12.hour : null,
+    minute: curTime12 ? curTime12.minute : null,
+    confirmed: !!curTime12,
+  };
 
   const overlay = document.createElement("div");
   overlay.className = "overlay";
@@ -682,25 +742,10 @@ function openTaskModal(task, defaultDate) {
       <label>날짜</label>
       <input type="date" id="t-date" value="${curDate}">
       <label class="time-toggle">
-        <input type="checkbox" id="t-time-enabled" ${curTime ? "checked" : ""}>
+        <input type="checkbox" id="t-time-enabled" ${showTimeArea ? "checked" : ""}>
         시간 지정 (비워두면 알림이 발송되지 않습니다)
       </label>
-      <div class="time-selects" id="t-time-selects" style="display:${curTime ? "flex" : "none"}">
-        <select id="t-ampm">
-          <option value="AM" ${curTime12.ampm === "AM" ? "selected" : ""}>오전</option>
-          <option value="PM" ${curTime12.ampm === "PM" ? "selected" : ""}>오후</option>
-        </select>
-        <select id="t-hour">
-          ${Array.from({ length: 12 }, (_, i) => i + 1).map(h =>
-            `<option value="${h}" ${h === curTime12.hour ? "selected" : ""}>${h}시</option>`
-          ).join("")}
-        </select>
-        <select id="t-minute">
-          ${[0, 10, 20, 30, 40, 50].map(m =>
-            `<option value="${m}" ${m === curTime12.minute ? "selected" : ""}>${String(m).padStart(2, "0")}분</option>`
-          ).join("")}
-        </select>
-      </div>
+      <div id="t-time-area" style="display:${showTimeArea ? "block" : "none"}"></div>
       <label>알림 시점 (비워두면 기본 알림 설정이 적용됩니다)</label>
       <div class="chk-row" id="t-reminders">
         ${REMINDER_PRESETS.map(p => `
@@ -722,8 +767,222 @@ function openTaskModal(task, defaultDate) {
   overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
   document.getElementById("t-cancel").onclick = () => overlay.remove();
   document.getElementById("t-time-enabled").onchange = (e) => {
-    document.getElementById("t-time-selects").style.display = e.target.checked ? "flex" : "none";
+    document.getElementById("t-time-area").style.display = e.target.checked ? "block" : "none";
   };
+
+  function formatClockState(cs) {
+    return `${cs.ampm === "AM" ? "오전" : "오후"} ${cs.hour}시 ${String(cs.minute).padStart(2, "0")}분`;
+  }
+
+  const MINUTE_VALUES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+  const WHEEL_ITEM_H = 40;
+
+  function bindAmpmButtons() {
+    document.getElementById("t-time-area").querySelectorAll(".clock-ampm button").forEach(btn => {
+      btn.onclick = () => { clockState.ampm = btn.dataset.ampm; renderTimeArea(); };
+    });
+  }
+
+  // 시(時) 선택: 원형 시계를 터치
+  function renderClockFaceHTML() {
+    const cx = 110, cy = 110, r = 88;
+    const values = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+
+    let handHTML = "";
+    const marksHTML = values.map(v => {
+      const rad = ((v % 12) * 30 - 90) * Math.PI / 180;
+      const x = (cx + r * Math.cos(rad)).toFixed(1);
+      const y = (cy + r * Math.sin(rad)).toFixed(1);
+      const isSel = clockState.hour === v;
+      if (isSel) handHTML = `<line class="clock-hand" x1="${cx}" y1="${cy}" x2="${x}" y2="${y}"></line>`;
+      return `<g class="clock-mark${isSel ? " selected" : ""}" data-value="${v}">
+        <circle cx="${x}" cy="${y}" r="16"></circle>
+        <text x="${x}" y="${(Number(y) + 5).toFixed(1)}" text-anchor="middle">${v}</text>
+      </g>`;
+    }).join("");
+
+    return `
+      <div class="clock-wrap">
+        <div class="clock-ampm">
+          <button type="button" class="${clockState.ampm === "AM" ? "active" : ""}" data-ampm="AM">오전</button>
+          <button type="button" class="${clockState.ampm === "PM" ? "active" : ""}" data-ampm="PM">오후</button>
+        </div>
+        <svg class="clock-face" viewBox="0 0 220 220">
+          <circle class="clock-outer" cx="${cx}" cy="${cy}" r="105"></circle>
+          ${handHTML}
+          ${marksHTML}
+          <circle class="clock-center" cx="${cx}" cy="${cy}" r="4"></circle>
+        </svg>
+        <div class="hint">시(時)를 터치하세요</div>
+      </div>`;
+  }
+
+  function bindClockEvents() {
+    bindAmpmButtons();
+    document.getElementById("t-time-area").querySelectorAll(".clock-mark").forEach(g => {
+      g.onclick = () => {
+        clockState.hour = Number(g.dataset.value);
+        clockState.mode = "minute";
+        renderTimeArea();
+      };
+    });
+  }
+
+  // 분(分) 선택: 시(時)를 고르면 5분 단위 롤(휠) 피커가 나타남
+  function renderMinuteWheelHTML() {
+    const items = MINUTE_VALUES.map(v =>
+      `<div class="wheel-item" data-value="${v}">${String(v).padStart(2, "0")}분</div>`
+    ).join("");
+    return `
+      <div class="clock-wrap">
+        <div class="clock-ampm">
+          <button type="button" class="${clockState.ampm === "AM" ? "active" : ""}" data-ampm="AM">오전</button>
+          <button type="button" class="${clockState.ampm === "PM" ? "active" : ""}" data-ampm="PM">오후</button>
+        </div>
+        <div class="hint">${clockState.hour}시 · 분(分)을 5분 단위로 스크롤해 선택하세요</div>
+        <div class="wheel-outer">
+          <div class="wheel-highlight"></div>
+          <div class="wheel-viewport" id="t-minute-wheel">
+            <div class="wheel-pad"></div>
+            ${items}
+            <div class="wheel-pad"></div>
+          </div>
+        </div>
+        <div class="wheel-actions">
+          <button type="button" class="clock-redo" id="t-hour-back">◀ 시(時) 다시 선택</button>
+          <button type="button" class="primary" id="t-minute-confirm">설정</button>
+        </div>
+      </div>`;
+  }
+
+  function bindMinuteWheelEvents() {
+    bindAmpmButtons();
+    const wheel = document.getElementById("t-minute-wheel");
+    let idx = clockState.minute != null ? MINUTE_VALUES.indexOf(clockState.minute) : 0;
+    if (idx < 0) idx = 0;
+
+    function highlight(i) {
+      wheel.querySelectorAll(".wheel-item").forEach((el, k) => el.classList.toggle("center", k === i));
+    }
+    wheel.scrollTop = idx * WHEEL_ITEM_H;
+    highlight(idx);
+
+    let settleTimer = null;
+    wheel.addEventListener("scroll", () => {
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => {
+        idx = Math.min(MINUTE_VALUES.length - 1, Math.max(0, Math.round(wheel.scrollTop / WHEEL_ITEM_H)));
+        wheel.scrollTo({ top: idx * WHEEL_ITEM_H, behavior: "smooth" });
+        highlight(idx);
+      }, 120);
+    });
+
+    document.getElementById("t-hour-back").onclick = () => {
+      clockState.mode = "hour";
+      renderTimeArea();
+    };
+    document.getElementById("t-minute-confirm").onclick = () => {
+      clockState.minute = MINUTE_VALUES[idx];
+      clockState.confirmed = true;
+      renderTimeArea();
+    };
+  }
+
+  function renderRecordSectionHTML() {
+    const supported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!supported) {
+      return `<div class="record-section">
+        <div class="record-hint">이 브라우저는 음성 인식을 지원하지 않습니다. Chrome 브라우저를 사용해주세요.<br>내용은 위 입력창에 직접 입력할 수 있습니다.</div>
+      </div>`;
+    }
+    return `<div class="record-section">
+      <button type="button" class="record-btn" id="t-record-btn">🎙️</button>
+      <div class="record-hint">누른 채로 말하면 텍스트로 변환되어<br>내용에 입력됩니다</div>
+      <div class="record-live" id="t-record-live"></div>
+    </div>`;
+  }
+
+  function bindRecordEvents() {
+    const btn = document.getElementById("t-record-btn");
+    if (!btn) return;
+    const liveEl = document.getElementById("t-record-live");
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let finalTranscript = "";
+    let active = false;
+
+    function start(ev) {
+      ev.preventDefault();
+      if (active) return;
+      active = true;
+      finalTranscript = "";
+      liveEl.textContent = "듣는 중…";
+      btn.classList.add("recording");
+      recognition = new SR();
+      recognition.lang = "ko-KR";
+      recognition.interimResults = true;
+      recognition.continuous = true;
+      recognition.onresult = (e) => {
+        let interim = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript;
+          if (e.results[i].isFinal) finalTranscript += t;
+          else interim += t;
+        }
+        liveEl.textContent = (finalTranscript + interim) || "듣는 중…";
+      };
+      recognition.onerror = (e) => {
+        toast(e.error === "not-allowed" ? "마이크 권한이 필요합니다." : "음성 인식 오류: " + e.error, true);
+      };
+      recognition.onend = () => {
+        if (!active) return;
+        active = false;
+        btn.classList.remove("recording");
+        const textEl = document.getElementById("t-text");
+        const trimmed = finalTranscript.trim();
+        if (trimmed) textEl.value = textEl.value.trim() ? (textEl.value.trim() + " " + trimmed) : trimmed;
+        liveEl.textContent = "";
+      };
+      try { recognition.start(); } catch { /* 이미 시작된 경우 무시 */ }
+    }
+    function stop(ev) {
+      if (ev) ev.preventDefault();
+      if (recognition) { try { recognition.stop(); } catch { /* noop */ } }
+    }
+    btn.addEventListener("pointerdown", start);
+    btn.addEventListener("pointerup", stop);
+    btn.addEventListener("pointerleave", stop);
+    btn.addEventListener("pointercancel", stop);
+  }
+
+  function renderTimeArea() {
+    const wrap = document.getElementById("t-time-area");
+    if (!clockState.confirmed) {
+      if (clockState.mode === "hour") {
+        wrap.innerHTML = renderClockFaceHTML();
+        bindClockEvents();
+      } else {
+        wrap.innerHTML = renderMinuteWheelHTML();
+        bindMinuteWheelEvents();
+      }
+    } else {
+      wrap.innerHTML = `
+        <div class="clock-wrap">
+          <div class="clock-current">${formatClockState(clockState)}</div>
+          <button type="button" class="clock-redo" id="t-clock-redo">시간 다시 설정</button>
+        </div>
+        ${renderRecordSectionHTML()}`;
+      document.getElementById("t-clock-redo").onclick = () => {
+        clockState.confirmed = false;
+        clockState.mode = "hour";
+        clockState.hour = null;
+        clockState.minute = null;
+        renderTimeArea();
+      };
+      bindRecordEvents();
+    }
+  }
+  renderTimeArea();
 
   if (isEdit) {
     document.getElementById("t-delete").onclick = async () => {
@@ -742,16 +1001,13 @@ function openTaskModal(task, defaultDate) {
     const text = document.getElementById("t-text").value.trim();
     const date = document.getElementById("t-date").value;
     const timeEnabled = document.getElementById("t-time-enabled").checked;
-    const time = timeEnabled
-      ? from12h(
-          document.getElementById("t-ampm").value,
-          document.getElementById("t-hour").value,
-          document.getElementById("t-minute").value
-        )
+    const time = (timeEnabled && clockState.confirmed)
+      ? from12h(clockState.ampm, clockState.hour, clockState.minute)
       : "";
     const errEl = document.getElementById("t-error");
     if (!text) { errEl.textContent = "내용을 입력해주세요."; return; }
     if (!date) { errEl.textContent = "날짜를 선택해주세요."; return; }
+    if (timeEnabled && !clockState.confirmed) { errEl.textContent = "시계에서 시간을 선택해주세요."; return; }
     errEl.textContent = "";
 
     const reminders = Array.from(overlay.querySelectorAll("#t-reminders input:checked")).map(c => c.value);
