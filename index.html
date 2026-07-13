@@ -136,10 +136,10 @@
   .clock-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 10px; }
   .clock-ampm { display: flex; gap: 8px; }
   .clock-ampm button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .clock-face { width: 220px; max-width: 100%; }
+  .clock-face { width: 300px; max-width: 100%; }
   .clock-face .clock-outer { fill: none; stroke: var(--border); stroke-width: 1.5; }
   .clock-mark circle { fill: var(--panel); stroke: var(--border); cursor: pointer; }
-  .clock-mark text { font-size: 13px; fill: var(--text); font-weight: 600; user-select: none; pointer-events: none; }
+  .clock-mark text { font-size: 17px; fill: var(--text); font-weight: 600; user-select: none; pointer-events: none; }
   .clock-mark.selected circle { fill: var(--accent); stroke: var(--accent); }
   .clock-mark.selected text { fill: #fff; }
   .clock-hand { stroke: var(--accent); stroke-width: 2; }
@@ -147,24 +147,16 @@
   .clock-current { font-size: 15px; font-weight: 700; }
   .clock-redo { font-size: 12px; color: var(--muted); background: none; border: none; text-decoration: underline; cursor: pointer; padding: 2px; }
 
-  .wheel-outer { position: relative; width: 140px; }
-  .wheel-viewport {
-    height: 120px; overflow-y: scroll; scroll-snap-type: y mandatory;
-    -webkit-overflow-scrolling: touch; border-radius: 10px; background: var(--bg);
-    scrollbar-width: none;
+  .minute-grid {
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px;
+    width: 100%; max-width: 380px;
   }
-  .wheel-viewport::-webkit-scrollbar { display: none; }
-  .wheel-pad { height: 40px; }
-  .wheel-item {
-    height: 40px; display: flex; align-items: center; justify-content: center;
-    font-size: 16px; color: var(--muted); scroll-snap-align: center;
+  .minute-grid-btn {
+    height: 60px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel);
+    color: var(--text); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+    white-space: nowrap; padding: 0 2px;
   }
-  .wheel-item.center { color: var(--text); font-weight: 700; font-size: 19px; }
-  .wheel-highlight {
-    position: absolute; left: 0; right: 0; top: 40px; height: 40px;
-    border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); pointer-events: none;
-  }
-  .wheel-actions { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
+  .minute-grid-btn.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
 
   .record-section { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border); }
   .record-btn {
@@ -825,11 +817,10 @@ function formatClockState(cs) {
 }
 
 const MINUTE_VALUES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
-const WHEEL_ITEM_H = 40;
 
 // 시(時) 선택: 원형 시계를 터치
 function renderClockFaceHTML(clockState) {
-  const cx = 110, cy = 110, r = 88;
+  const cx = 140, cy = 140, r = 112;
   const values = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
   let handHTML = "";
@@ -840,8 +831,8 @@ function renderClockFaceHTML(clockState) {
     const isSel = clockState.hour === v;
     if (isSel) handHTML = `<line class="clock-hand" x1="${cx}" y1="${cy}" x2="${x}" y2="${y}"></line>`;
     return `<g class="clock-mark${isSel ? " selected" : ""}" data-value="${v}">
-      <circle cx="${x}" cy="${y}" r="16"></circle>
-      <text x="${x}" y="${(Number(y) + 5).toFixed(1)}" text-anchor="middle">${v}</text>
+      <circle cx="${x}" cy="${y}" r="20"></circle>
+      <text x="${x}" y="${(Number(y) + 6).toFixed(1)}" text-anchor="middle">${v}</text>
     </g>`;
   }).join("");
 
@@ -851,11 +842,11 @@ function renderClockFaceHTML(clockState) {
         <button type="button" class="${clockState.ampm === "AM" ? "active" : ""}" data-ampm="AM">오전</button>
         <button type="button" class="${clockState.ampm === "PM" ? "active" : ""}" data-ampm="PM">오후</button>
       </div>
-      <svg class="clock-face" viewBox="0 0 220 220">
-        <circle class="clock-outer" cx="${cx}" cy="${cy}" r="105"></circle>
+      <svg class="clock-face" viewBox="0 0 280 280">
+        <circle class="clock-outer" cx="${cx}" cy="${cy}" r="134"></circle>
         ${handHTML}
         ${marksHTML}
-        <circle class="clock-center" cx="${cx}" cy="${cy}" r="4"></circle>
+        <circle class="clock-center" cx="${cx}" cy="${cy}" r="5"></circle>
       </svg>
       <div class="hint">시(時)를 터치하세요</div>
     </div>`;
@@ -875,30 +866,21 @@ function bindClockEvents(clockState, callbacks) {
   });
 }
 
-// 분(分) 선택: 시(時)를 고르면 5분 단위 롤(휠) 피커가 나타남
+// 분(分) 선택: 시(時)를 고르면 6×2 버튼 그리드가 나타남 (5분 단위, 탭하면 바로 확정)
 function renderMinuteWheelHTML(clockState) {
-  const items = MINUTE_VALUES.map(v =>
-    `<div class="wheel-item" data-value="${v}">${String(v).padStart(2, "0")}분</div>`
-  ).join("");
+  const items = MINUTE_VALUES.map(v => {
+    const isSel = clockState.minute === v;
+    return `<button type="button" class="minute-grid-btn${isSel ? " selected" : ""}" data-value="${v}">${String(v).padStart(2, "0")}분</button>`;
+  }).join("");
   return `
     <div class="clock-wrap">
       <div class="clock-ampm">
         <button type="button" class="${clockState.ampm === "AM" ? "active" : ""}" data-ampm="AM">오전</button>
         <button type="button" class="${clockState.ampm === "PM" ? "active" : ""}" data-ampm="PM">오후</button>
       </div>
-      <div class="hint">${clockState.hour}시 · 분(分)을 5분 단위로 스크롤해 선택하세요</div>
-      <div class="wheel-outer">
-        <div class="wheel-highlight"></div>
-        <div class="wheel-viewport" id="t-minute-wheel">
-          <div class="wheel-pad"></div>
-          ${items}
-          <div class="wheel-pad"></div>
-        </div>
-      </div>
-      <div class="wheel-actions">
-        <button type="button" class="clock-redo" id="t-hour-back">◀ 시(時) 다시 선택</button>
-        <button type="button" class="primary" id="t-minute-confirm">설정</button>
-      </div>
+      <div class="hint">${clockState.hour}시 · 분(分)을 선택하세요</div>
+      <div class="minute-grid">${items}</div>
+      <button type="button" class="clock-redo" id="t-hour-back">◀ 시(時) 다시 선택</button>
     </div>`;
 }
 
@@ -907,32 +889,14 @@ function bindMinuteWheelEvents(clockState, callbacks) {
   document.querySelectorAll(".clock-ampm button").forEach(btn => {
     btn.onclick = () => { clockState.ampm = btn.dataset.ampm; callbacks.onRerender(); };
   });
-  const wheel = document.getElementById("t-minute-wheel");
-  let idx = clockState.minute != null ? MINUTE_VALUES.indexOf(clockState.minute) : 0;
-  if (idx < 0) idx = 0;
-
-  function highlight(i) {
-    wheel.querySelectorAll(".wheel-item").forEach((el, k) => el.classList.toggle("center", k === i));
-  }
-  wheel.scrollTop = idx * WHEEL_ITEM_H;
-  highlight(idx);
-
-  let settleTimer = null;
-  wheel.addEventListener("scroll", () => {
-    clearTimeout(settleTimer);
-    settleTimer = setTimeout(() => {
-      idx = Math.min(MINUTE_VALUES.length - 1, Math.max(0, Math.round(wheel.scrollTop / WHEEL_ITEM_H)));
-      wheel.scrollTo({ top: idx * WHEEL_ITEM_H, behavior: "smooth" });
-      highlight(idx);
-    }, 120);
+  document.querySelectorAll(".minute-grid-btn").forEach(btn => {
+    btn.onclick = () => {
+      clockState.minute = Number(btn.dataset.value);
+      clockState.confirmed = true;
+      callbacks.onConfirm();
+    };
   });
-
   document.getElementById("t-hour-back").onclick = () => callbacks.onBack();
-  document.getElementById("t-minute-confirm").onclick = () => {
-    clockState.minute = MINUTE_VALUES[idx];
-    clockState.confirmed = true;
-    callbacks.onConfirm();
-  };
 }
 
 function renderRecordSectionHTML() {
@@ -975,13 +939,6 @@ function bindRecordEvents() {
   let chunks = [];
   let active = false;
   const AUDIO_CONSTRAINTS = { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } };
-
-  // 버튼을 누르기 전에 마이크 권한을 미리 받아둔다. 처음 쓸 때 iOS 권한 팝업이
-  // 뜨는 동안 사용자가 이미 말을 시작해서 앞부분이 잘리는 것을 막기 위함.
-  // (권한만 확인하고 바로 트랙을 끄므로 마이크가 계속 켜져있지는 않는다)
-  navigator.mediaDevices.getUserMedia(AUDIO_CONSTRAINTS)
-    .then(s => s.getTracks().forEach(t => t.stop()))
-    .catch(() => { /* 거부된 경우 실제로 누를 때 다시 물어보고 안내한다 */ });
 
   function pickMimeType() {
     const candidates = ["audio/mp4", "audio/webm", "audio/ogg"];
