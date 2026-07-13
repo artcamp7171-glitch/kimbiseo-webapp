@@ -130,6 +130,9 @@
     border-radius: 20px; font-size: 13px; color: var(--text); cursor: pointer;
   }
   .chk-row input { margin: 0; }
+  #wz-reminders { gap: 12px; }
+  #wz-reminders label { padding: 14px 20px; font-size: 18px; border-radius: 26px; gap: 8px; }
+  #wz-reminders input { width: 20px; height: 20px; }
   .time-toggle { display: flex; align-items: center; gap: 6px; margin: 12px 0 0; font-size: 13px; color: var(--text); cursor: pointer; }
   .time-toggle input { width: auto; margin: 0; }
 
@@ -279,6 +282,11 @@ const KR_HOLIDAYS = {
 // 마법사가 열려있는 동안 설정에서 OpenAI 키를 저장하면, 뒤로/다시 가지 않아도
 // 녹음 버튼이 바로 나타나도록 현재 단계를 다시 그리는 함수를 등록해둔다.
 let activeWizardRerender = null;
+// GitHub Contents API가 방금 저장한 내용을 즉시 읽기 일관되게 반영하지 않을 때가 있어
+// (읽기-후-쓰기 지연), 저장 직후 잠시는 조용한 자동 새로고침이 오래된 데이터로
+// 화면을 덮어쓰지 않도록 건너뛴다.
+let lastLocalWriteAt = 0;
+const SKIP_AUTO_REFRESH_MS = 15000;
 let settings = loadSettings();
 let state = {
   tasksSha: null, usersSha: null,
@@ -468,6 +476,7 @@ async function persistTasks(mutateFn) {
       const sha = await ghPut(DEFAULT_PATH_TASKS, text, fresh.sha, "webapp: 일정 변경");
       state.tasks = freshTasks;
       state.tasksSha = sha;
+      lastLocalWriteAt = Date.now();
       return;
     } catch (e) {
       lastErr = e;
@@ -479,6 +488,7 @@ async function persistTasks(mutateFn) {
 async function persistUsers() {
   const text = objectsToCSV(USER_FIELDS, state.users);
   state.usersSha = await ghPut(DEFAULT_PATH_USERS, text, state.usersSha, "webapp: 기본 알림 설정 변경");
+  lastLocalWriteAt = Date.now();
 }
 
 function nextTaskId(tasks) {
@@ -805,7 +815,7 @@ function openSettingsModal() {
       await persistUsers();
       toast("설정을 저장했습니다.");
       overlay.remove();
-      loadAll();
+      render();
       if (activeWizardRerender) activeWizardRerender();
     } catch (e) { toast(e.message, true); }
   };
@@ -1104,7 +1114,7 @@ function openTaskModal(task, defaultDate, forceTime) {
         });
         toast("삭제했습니다.");
         overlay.remove();
-        loadAll();
+        render();
       } catch (e) { toast(e.message, true); }
     };
   }
@@ -1153,7 +1163,7 @@ function openTaskModal(task, defaultDate, forceTime) {
       toast(isEdit ? "수정했습니다." : "추가했습니다.");
       overlay.remove();
       state.selectedDate = date;
-      loadAll();
+      render();
     } catch (e) { errEl.textContent = e.message; }
   };
 }
@@ -1172,9 +1182,11 @@ function openTaskWizard(defaultDate) {
   const overlay = document.createElement("div");
   overlay.className = "wizard-overlay";
   document.body.appendChild(overlay);
-  render();
+  renderWizard();
 
-  function render() {
+  // 이름을 renderWizard로 둔다: 바깥의 전역 render()(달력/일자 패널)와
+  // 이름이 겹치면 save() 안에서 부르는 render()가 이 함수로 가려져 버린다.
+  function renderWizard() {
     const idx = WIZ_STEPS.indexOf(wiz.step);
     const [y, m, d] = wiz.date.split("-").map(Number);
     overlay.innerHTML = `
@@ -1187,8 +1199,8 @@ function openTaskWizard(defaultDate) {
       <div class="wizard-body" id="wz-body"></div>
       <div class="wizard-footer" id="wz-footer"></div>`;
     document.getElementById("wz-close").onclick = () => { activeWizardRerender = null; overlay.remove(); };
-    document.getElementById("wz-date").onchange = (e) => { wiz.date = e.target.value; render(); };
-    if (idx > 0) document.getElementById("wz-back").onclick = () => { wiz.step = WIZ_STEPS[idx - 1]; render(); };
+    document.getElementById("wz-date").onchange = (e) => { wiz.date = e.target.value; renderWizard(); };
+    if (idx > 0) document.getElementById("wz-back").onclick = () => { wiz.step = WIZ_STEPS[idx - 1]; renderWizard(); };
     activeWizardRerender = renderStep;
     renderStep();
   }
@@ -1202,19 +1214,19 @@ function openTaskWizard(defaultDate) {
       footer.innerHTML = "";
       bindClockEvents(clockState, {
         onRerender: renderStep,
-        onHourPicked: () => { wiz.step = "minute"; render(); },
+        onHourPicked: () => { wiz.step = "minute"; renderWizard(); },
       });
       document.getElementById("wz-skip-time").onclick = () => {
         clockState.hour = null; clockState.minute = null; clockState.confirmed = false;
-        wiz.step = "content"; render();
+        wiz.step = "content"; renderWizard();
       };
     } else if (wiz.step === "minute") {
       body.innerHTML = `<h2>${clockState.hour}시 몇 분인가요?</h2>${renderMinuteWheelHTML(clockState)}`;
       footer.innerHTML = "";
       bindMinuteWheelEvents(clockState, {
         onRerender: renderStep,
-        onBack: () => { wiz.step = "hour"; render(); },
-        onConfirm: () => { wiz.step = "content"; render(); },
+        onBack: () => { wiz.step = "hour"; renderWizard(); },
+        onConfirm: () => { wiz.step = "content"; renderWizard(); },
       });
     } else if (wiz.step === "content") {
       body.innerHTML = `
@@ -1227,7 +1239,7 @@ function openTaskWizard(defaultDate) {
         wiz.text = document.getElementById("t-text").value.trim();
         if (!wiz.text) { toast("내용을 입력해주세요.", true); return; }
         wiz.step = "reminders";
-        render();
+        renderWizard();
       };
     } else if (wiz.step === "reminders") {
       body.innerHTML = `
@@ -1265,7 +1277,7 @@ function openTaskWizard(defaultDate) {
       activeWizardRerender = null;
       overlay.remove();
       state.selectedDate = wiz.date;
-      loadAll();
+      render();
     } catch (e) { toast(e.message, true); }
   }
 }
@@ -1276,10 +1288,13 @@ if (settingsComplete()) loadAll(); else render();
 // 텔레그램 봇이 새로 등록한 일정이 화면에 자동으로 반영되도록 주기적으로 조용히 새로고침한다.
 // 로딩 스피너 없이(silent) 데이터만 갱신하고, 탭이 백그라운드일 땐 쉬었다가 돌아오면 즉시 갱신한다.
 const AUTO_REFRESH_MS = 20000;
+function shouldSkipAutoRefresh() {
+  return Date.now() - lastLocalWriteAt < SKIP_AUTO_REFRESH_MS;
+}
 setInterval(() => {
-  if (!document.hidden && settingsComplete() && !state.loading) loadAll({ silent: true });
+  if (!document.hidden && settingsComplete() && !state.loading && !shouldSkipAutoRefresh()) loadAll({ silent: true });
 }, AUTO_REFRESH_MS);
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && settingsComplete() && !state.loading) loadAll({ silent: true });
+  if (!document.hidden && settingsComplete() && !state.loading && !shouldSkipAutoRefresh()) loadAll({ silent: true });
 });
 </script>
