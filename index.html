@@ -973,16 +973,19 @@ function bindRecordEvents() {
       stream.getTracks().forEach(t => t.stop());
       btn.classList.remove("recording");
       if (!chunks.length) { liveEl.textContent = ""; return; }
-      liveEl.textContent = "변환 중…";
+      const blob = new Blob(chunks, { type: mediaRecorder.mimeType || "audio/webm" });
+      // 디버그용: 실제로 녹음이 잘 잡혔는지 눌러서 확인할 수 있도록 재생 버튼을 남겨둔다.
+      const debugUrl = URL.createObjectURL(blob);
+      const debugPlayer = `<audio controls src="${debugUrl}" style="width:100%;margin-top:6px;"></audio>`;
+      liveEl.innerHTML = `변환 중…${debugPlayer}`;
       try {
-        const blob = new Blob(chunks, { type: mediaRecorder.mimeType || "audio/webm" });
         const text = await transcribeAudio(blob);
         const textEl = document.getElementById("t-text");
         if (text) textEl.value = textEl.value.trim() ? (textEl.value.trim() + " " + text) : text;
+        liveEl.innerHTML = debugPlayer;
       } catch (err) {
         toast("음성 변환 실패: " + err.message, true);
-      } finally {
-        liveEl.textContent = "";
+        liveEl.innerHTML = debugPlayer;
       }
     };
     mediaRecorder.start();
