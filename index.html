@@ -405,13 +405,13 @@ async function ghPut(path, text, sha, message) {
   return data.content.sha;
 }
 
-// ── 음성 인식 (OpenAI Whisper API) ─────────────────────
-// 텔레그램 봇(secretary.py)의 transcribe_voice()와 동일한 방식.
+// ── 음성 인식 (OpenAI gpt-4o-transcribe) ────────────────
+// whisper-1보다 인식 정확도가 높은 모델. 텔레그램 봇(secretary.py)과 동일한 방식.
 async function transcribeAudio(blob) {
   const ext = (blob.type || "").includes("mp4") ? "mp4" : (blob.type || "").includes("ogg") ? "ogg" : "webm";
   const form = new FormData();
   form.append("file", blob, `voice.${ext}`);
-  form.append("model", "whisper-1");
+  form.append("model", "gpt-4o-transcribe");
   form.append("language", "ko");
   const resp = await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
