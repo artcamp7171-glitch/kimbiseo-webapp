@@ -243,6 +243,11 @@
     flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
     padding: 20px; overflow-y: auto; gap: 14px; text-align: center;
   }
+  .wizard-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 24px;
+    box-shadow: var(--shadow); padding: 28px 22px; width: 100%; max-width: 380px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+  }
   .wizard-body h2 { font-size: 21px; margin: 0; }
   .wizard-body input[type=text] { max-width: 360px; font-size: 17px; padding: 14px 12px; }
   .wizard-footer { padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; border-top: 1px solid var(--border); flex-shrink: 0; }
@@ -1222,8 +1227,8 @@ function openTaskWizard(defaultDate) {
     const body = document.getElementById("wz-body");
     const footer = document.getElementById("wz-footer");
     if (wiz.step === "hour") {
-      body.innerHTML = `<h2>몇 시인가요?</h2>${renderClockFaceHTML(clockState)}
-        <button type="button" class="clock-redo" id="wz-skip-time">시간 없이 저장</button>`;
+      body.innerHTML = `<div class="wizard-card"><h2>몇 시인가요?</h2>${renderClockFaceHTML(clockState)}
+        <button type="button" class="clock-redo" id="wz-skip-time">시간 없이 저장</button></div>`;
       footer.innerHTML = "";
       bindClockEvents(clockState, {
         onRerender: renderStep,
@@ -1234,7 +1239,7 @@ function openTaskWizard(defaultDate) {
         wiz.step = "content"; renderWizard();
       };
     } else if (wiz.step === "minute") {
-      body.innerHTML = `<h2>${clockState.hour}시 몇 분인가요?</h2>${renderMinuteWheelHTML(clockState)}`;
+      body.innerHTML = `<div class="wizard-card"><h2>${clockState.hour}시 몇 분인가요?</h2>${renderMinuteWheelHTML(clockState)}</div>`;
       footer.innerHTML = "";
       bindMinuteWheelEvents(clockState, {
         onRerender: renderStep,
@@ -1243,9 +1248,11 @@ function openTaskWizard(defaultDate) {
       });
     } else if (wiz.step === "content") {
       body.innerHTML = `
-        <h2>무슨 일정인가요?</h2>
-        <input type="text" id="t-text" value="${escapeAttr(wiz.text)}" placeholder="예: 헬리오시티점 드럼상담">
-        ${renderRecordSectionHTML()}`;
+        <div class="wizard-card">
+          <h2>무슨 일정인가요?</h2>
+          <input type="text" id="t-text" value="${escapeAttr(wiz.text)}" placeholder="예: 헬리오시티점 드럼상담">
+          ${renderRecordSectionHTML()}
+        </div>`;
       footer.innerHTML = `<button type="button" class="primary" id="wz-content-next">다음</button>`;
       bindRecordEvents();
       document.getElementById("wz-content-next").onclick = () => {
@@ -1256,13 +1263,15 @@ function openTaskWizard(defaultDate) {
       };
     } else if (wiz.step === "reminders") {
       body.innerHTML = `
-        <h2>알림 시점을 골라주세요</h2>
-        <div class="chk-row" id="wz-reminders" style="justify-content:center">
-          ${REMINDER_PRESETS.map(p => `
-            <label><input type="checkbox" value="${p.tok}" ${wiz.reminders.includes(p.tok) ? "checked" : ""}> ${p.label}</label>
-          `).join("")}
-        </div>
-        <p class="hint">비워두면 기본 알림 설정이 적용됩니다.</p>`;
+        <div class="wizard-card">
+          <h2>알림 시점을 골라주세요</h2>
+          <div class="chk-row" id="wz-reminders" style="justify-content:center">
+            ${REMINDER_PRESETS.map(p => `
+              <label><input type="checkbox" value="${p.tok}" ${wiz.reminders.includes(p.tok) ? "checked" : ""}> ${p.label}</label>
+            `).join("")}
+          </div>
+          <p class="hint">비워두면 기본 알림 설정이 적용됩니다.</p>
+        </div>`;
       footer.innerHTML = `<button type="button" class="primary" id="wz-save">저장</button>`;
       document.getElementById("wz-save").onclick = save;
     }
