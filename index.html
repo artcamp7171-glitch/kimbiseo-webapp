@@ -1,6 +1,14 @@
 <title>헤이테일러 스케쥴러</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#6f63ff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="헤이테일러">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
 <style>
   :root {
     color-scheme: light dark;
@@ -1333,4 +1341,11 @@ setInterval(() => {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && settingsComplete() && !state.loading && !shouldSkipAutoRefresh()) loadAll({ silent: true });
 });
+
+// PWA로 설치하면 iOS가 저장공간(localStorage)을 정기적으로 비우지 않는다.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => { /* 지원 안 되면 그냥 무시 */ });
+  });
+}
 </script>
