@@ -4,29 +4,37 @@
 <style>
   :root {
     color-scheme: light dark;
-    --bg: #f2f0fc;
+    --bg: #f8f7ff;
+    --bg-gradient: linear-gradient(160deg, #ece8ff 0%, #f8f7ff 45%, #ffffff 100%);
     --panel: #ffffff;
+    --panel-glass: rgba(255,255,255,.7);
     --text: #211f36;
     --muted: #7c7796;
     --border: #e7e3f7;
-    --accent: #6c63ff;
+    --accent: #6f63ff;
+    --accent-2: #7d74ff;
+    --accent-soft: #afa8ff;
     --accent-weak: #ece9ff;
     --danger: #ff6b6b;
     --today: #fff1e0;
     --sunday: #ff5c7a;
     --saturday: #5b7fff;
     --holiday-bg: rgba(255,92,122,.08);
-    --weekend-bg: rgba(108,99,255,.06);
-    --shadow: 0 10px 30px rgba(108,99,255,.2);
+    --weekend-bg: rgba(111,99,255,.06);
+    --shadow: 0 14px 34px rgba(111,99,255,.16);
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #16131f;
+      --bg-gradient: linear-gradient(160deg, #241f3d 0%, #16131f 55%, #120f1a 100%);
       --panel: #211d33;
+      --panel-glass: rgba(33,29,51,.7);
       --text: #ece9fb;
       --muted: #a79fcf;
       --border: #34304c;
       --accent: #8f85ff;
+      --accent-2: #a89dff;
+      --accent-soft: #6b62c9;
       --accent-weak: #2b2650;
       --danger: #ff7b7b;
       --today: #3a2f1c;
@@ -34,20 +42,23 @@
       --saturday: #8f9dff;
       --holiday-bg: rgba(255,123,149,.1);
       --weekend-bg: rgba(143,133,255,.08);
-      --shadow: 0 10px 30px rgba(0,0,0,.45), 0 4px 14px rgba(143,133,255,.18);
+      --shadow: 0 14px 34px rgba(0,0,0,.5), 0 4px 16px rgba(143,133,255,.2);
     }
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Pretendard, sans-serif;
-    background: var(--bg); color: var(--text); min-height: 100vh;
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Pretendard, sans-serif;
+    background: var(--bg-gradient); background-attachment: fixed;
+    color: var(--text); min-height: 100vh;
   }
   .wrap { max-width: 860px; margin: 0 auto; padding: 16px 14px 60px; }
   header.top {
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    margin-bottom: 14px; flex-wrap: wrap;
+    margin-bottom: 16px; flex-wrap: wrap; padding: 14px 18px; border-radius: 24px;
+    background: var(--panel-glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    box-shadow: var(--shadow);
   }
-  h1 { font-size: 18px; margin: 0; }
+  h1 { font-size: 19px; font-weight: 800; margin: 0; letter-spacing: -.01em; }
   .muted { color: var(--muted); }
   button {
     font: inherit; cursor: pointer; border: 1px solid var(--border); background: var(--panel);
@@ -55,16 +66,16 @@
   }
   button.primary {
     background: var(--accent); border-color: var(--accent); color: #fff;
-    border-radius: 999px; box-shadow: 0 6px 16px rgba(108,99,255,.35);
+    border-radius: 999px; box-shadow: 0 6px 16px rgba(111,99,255,.35);
   }
   button.danger { border-color: var(--danger); color: var(--danger); background: transparent; }
-  button.icon { padding: 7px 10px; border-radius: 12px; box-shadow: 0 2px 8px rgba(108,99,255,.12); }
+  button.icon { padding: 7px 10px; border-radius: 12px; box-shadow: 0 2px 8px rgba(111,99,255,.12); }
   button:disabled { opacity: .5; cursor: default; }
   .row { display: flex; align-items: center; gap: 6px; }
   .month-nav { display: flex; align-items: center; gap: 10px; }
   .month-nav .label { font-weight: 600; min-width: 108px; text-align: center; }
   .panel {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 22px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 28px;
     box-shadow: var(--shadow); padding: 16px;
   }
   .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; margin-top: 12px; }
@@ -78,9 +89,9 @@
     min-height: 88px; border: 1px solid var(--border); border-radius: 16px; padding: 6px 6px 5px;
     background: var(--panel); cursor: pointer; display: flex; flex-direction: column; gap: 3px;
     overflow: hidden; transition: border-color .12s ease, box-shadow .12s ease;
-    box-shadow: 0 2px 8px rgba(108,99,255,.08);
+    box-shadow: 0 2px 8px rgba(111,99,255,.08);
   }
-  .cell:not(.empty):hover { border-color: var(--accent); box-shadow: 0 4px 14px rgba(108,99,255,.2); }
+  .cell:not(.empty):hover { border-color: var(--accent); box-shadow: 0 4px 14px rgba(111,99,255,.2); }
   .cell.empty { border-color: transparent; cursor: default; }
   .cell.weekend { background: var(--weekend-bg); }
   .cell.holiday { background: var(--holiday-bg); }
@@ -118,16 +129,16 @@
   }
   @media (min-width: 640px) { .overlay { align-items: center; } }
   .modal {
-    background: var(--panel); width: 100%; max-width: 480px; border-radius: 24px 24px 0 0;
+    background: var(--panel); width: 100%; max-width: 480px; border-radius: 28px 28px 0 0;
     padding: 18px; max-height: 88vh; overflow-y: auto;
   }
-  @media (min-width: 640px) { .modal { border-radius: 24px; } }
+  @media (min-width: 640px) { .modal { border-radius: 28px; } }
   .modal h2 { margin: 0 0 12px; font-size: 16px; }
   label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
   input[type=text], input[type=date], input[type=time], textarea, select {
     width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px;
     background: var(--panel); color: var(--text); font: inherit;
-    box-shadow: inset 0 1px 5px rgba(108,99,255,.1);
+    box-shadow: inset 0 1px 5px rgba(111,99,255,.1);
     transition: box-shadow .15s ease, border-color .15s ease;
   }
   input[type=text]:focus, input[type=date]:focus, input[type=time]:focus, textarea:focus, select:focus {
@@ -137,7 +148,7 @@
   .chk-row label {
     display: flex; align-items: center; gap: 5px; margin: 0; padding: 6px 10px; border: 1px solid var(--border);
     border-radius: 20px; font-size: 13px; color: var(--text); cursor: pointer; background: var(--panel);
-    box-shadow: 0 2px 6px rgba(108,99,255,.1);
+    box-shadow: 0 2px 6px rgba(111,99,255,.1);
   }
   .chk-row input { margin: 0; }
   #wz-reminders { gap: 12px; }
@@ -153,7 +164,7 @@
   .clock-face .clock-outer { fill: none; stroke: var(--border); stroke-width: 1.5; }
   .clock-mark circle {
     fill: var(--panel); stroke: var(--border); cursor: pointer;
-    filter: drop-shadow(0 2px 4px rgba(108,99,255,.18));
+    filter: drop-shadow(0 2px 4px rgba(111,99,255,.18));
   }
   .clock-mark text { font-size: 17px; fill: var(--text); font-weight: 600; user-select: none; pointer-events: none; }
   .clock-mark.selected circle { fill: var(--accent); stroke: var(--accent); }
@@ -170,7 +181,7 @@
   .minute-grid-btn {
     height: 60px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel);
     color: var(--text); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
-    white-space: nowrap; padding: 0 2px; box-shadow: 0 3px 10px rgba(108,99,255,.12);
+    white-space: nowrap; padding: 0 2px; box-shadow: 0 3px 10px rgba(111,99,255,.12);
   }
   .minute-grid-btn.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
 
@@ -222,12 +233,14 @@
   .loading { text-align: center; padding: 40px 0; color: var(--muted); }
 
   .wizard-overlay {
-    position: fixed; inset: 0; background: var(--bg); z-index: 30;
+    position: fixed; inset: 0; background: var(--bg-gradient); z-index: 30;
     display: flex; flex-direction: column;
   }
   .wizard-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    padding: 14px 10px; flex-shrink: 0;
+    background: var(--panel-glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 1px 0 rgba(111,99,255,.08);
   }
   .wizard-header button {
     border: none; background: none; font-size: 20px; color: var(--text); cursor: pointer; padding: 6px 10px;
@@ -244,7 +257,7 @@
     padding: 20px; overflow-y: auto; gap: 14px; text-align: center;
   }
   .wizard-card {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 24px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 30px;
     box-shadow: var(--shadow); padding: 28px 22px; width: 100%; max-width: 380px;
     display: flex; flex-direction: column; align-items: center; gap: 14px;
   }
